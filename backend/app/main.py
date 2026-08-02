@@ -15,9 +15,10 @@ async def _validation_exception_handler(request: Request, exc: RequestValidation
     # violate "no plaintext secret content in ... error messages, ever."
     # So we strip the input value out of every validation error before it
     # goes back over the wire.
-    errors = exc.errors(include_url=False)
+    errors = exc.errors()
     for error in errors:
         error.pop("input", None)
+        error.pop("url", None)
     return JSONResponse(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content={"detail": errors})
 
 
