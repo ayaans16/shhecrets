@@ -1,6 +1,8 @@
 import redis.asyncio as redis
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
+from app.core.mongo_client import get_db
 from app.core.rate_limit import rate_limit_create, rate_limit_read
 from app.core.redis_client import get_redis
 from app.models.session import SecretReadResponse, SecretSubmission, SessionCreateResponse
@@ -15,9 +17,12 @@ router = APIRouter(prefix="/sessions", tags=["sessions"])
     dependencies=[Depends(rate_limit_create)],
 )
 async def create_session(
+    request: Request,
     redis_client: redis.Redis = Depends(get_redis),
+    mongo_db: AsyncIOMotorDatabase = Depends(get_db),
 ) -> SessionCreateResponse:
-    session_id, expires_at = await session_service.create_session(redis_client)
+    client_ip = request.client.host if request.client else None
+    session_id, expires_at = await session_service.create_session(redis_client, mongo_db, client_ip)
     return SessionCreateResponse(session_id=session_id, expires_at=expires_at)
 
 
@@ -44,6 +49,7 @@ async def submit_secret(
 async def read_secret(
     session_id: str,
     redis_client: redis.Redis = Depends(get_redis),
+    mongo_db: AsyncIOMotorDatabase = Depends(get_db),
 ) -> SecretReadResponse:
-    content = await session_service.read_and_burn(redis_client, session_id)
+    content = await session_service.read_and_burn(redis_client, mongo_db, session_id)
     return SecretReadResponse(content=content)
