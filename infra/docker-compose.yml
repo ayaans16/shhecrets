@@ -1,0 +1,22 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: ../backend
+    env_file:
+      - ../backend/.env.example
+    environment:
+      # Overrides the .env.example value: inside compose's network the
+      # backend reaches Redis by service name, not localhost.
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+
+# Mongo (session metadata) and the frontend join this file in later
+# stages - not wired up yet since Stage 1 is Redis + backend only.
