@@ -15,4 +15,5 @@ class SessionMetadata(BaseModel):
     expires_at: datetime
     read: bool = False
     read_count: int = 0
+    read_at: Optional[datetime] = None
     hashed_ip: Optional[str] = None
