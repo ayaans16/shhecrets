@@ -23,6 +23,16 @@ class Settings(BaseSettings):
     # job or sweep process needed to clean up abandoned sessions.
     session_ttl_seconds: int = 600
 
+    mongo_url: str = "mongodb://localhost:27017"
+    mongo_db_name: str = "shhecrets"
+
+    # Pepper mixed into the IP hash (see core/security.py) so the stored
+    # hash can't be reversed via a rainbow table of common IPs. This is a
+    # throwaway default for local dev only - a real deploy must set this
+    # from Secrets Manager (e.g. `openssl rand -hex 32`), otherwise the
+    # "hashed, not raw" IP protection is mostly theater.
+    ip_hash_pepper: str = "local-dev-pepper-do-not-use-in-prod"
+
     cors_origins: str = "http://localhost:5173"
 
     rate_limit_create: str = "10/60"
