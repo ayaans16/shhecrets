@@ -19,11 +19,27 @@ services:
       # backend reaches these by service name, not localhost.
       REDIS_URL: redis://redis:6379/0
       MONGO_URL: mongodb://mongo:27017
+      # The Vite dev server (5173) and the containerized frontend (8080,
+      # below) are both valid origins depending on how you're running
+      # things locally - both allowed here for dev convenience.
+      CORS_ORIGINS: http://localhost:5173,http://localhost:8080
     ports:
       - "8000:8000"
     depends_on:
       - redis
       - mongo
 
-# The frontend joins this file in a later stage - not wired up yet since
-# Stage 2 is Redis + Mongo + backend only.
+  frontend:
+    build:
+      context: ../frontend
+      args:
+        # The browser calls this directly (it's not container-to-
+        # container traffic), so it has to be an address the *host*
+        # machine can reach - localhost:8000, the backend's published
+        # port - not the "backend" service DNS name, which only
+        # resolves inside the compose network.
+        VITE_API_BASE_URL: http://localhost:8000
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
