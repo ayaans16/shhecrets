@@ -1,0 +1,14 @@
+shhecrets.ca {
+	tls /certs/cert.pem /certs/key.pem
+	reverse_proxy frontend:80
+}
+
+api.shhecrets.ca {
+	tls /certs/cert.pem /certs/key.pem
+	reverse_proxy backend:8000
+}
+
+# Caddy adds http->https redirects automatically for any site block with
+# a hostname (its "auto HTTPS" behavior applies even with manually
+# supplied certs, not just its own ACME-issued ones) - no separate :80
+# block needed here.
