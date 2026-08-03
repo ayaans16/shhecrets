@@ -39,3 +39,30 @@ jobs:
       - run: npm ci
       - run: npx tsc -b
       - run: npx vitest run
+
+  deploy:
+    needs: [backend, frontend]
+    # Only after a real merge to main, never on a PR - a PR from a fork
+    # would otherwise be able to trigger this with access to secrets.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH into VPS and redeploy
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd ~/shhecrets
+            git pull
+            cd infra
+            docker-compose -f docker-compose.prod.yml up -d --build
+
+      - name: Verify the public endpoint is up
+        # Hits the real deployed site from GitHub's runner, not the VPS -
+        # a build succeeding on the VPS doesn't guarantee the container
+        # actually came up healthy behind Caddy/Cloudflare.
+        run: |
+          sleep 5
+          curl -sf https://api.shhecrets.ca/health
