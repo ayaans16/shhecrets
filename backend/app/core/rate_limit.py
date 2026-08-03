@@ -5,20 +5,34 @@ from app.config import get_settings
 from app.core.redis_client import get_redis
 
 
+def _client_ip(request: Request) -> str:
+    # In production this app sits behind Cloudflare -> Caddy, so
+    # request.client.host would be Caddy's own container IP, not the
+    # caller's - every request would land in the same rate-limit bucket.
+    # CF-Connecting-IP is set by Cloudflare itself from its edge
+    # connection to the visitor, and Cloudflare strips any
+    # client-supplied value with that name before setting its own - so a
+    # client can't spoof it to dodge the limit or frame another IP.
+    # Trusting it is safe specifically because Caddy/the backend are only
+    # ever reachable through Cloudflare (nothing else can reach them -
+    # see docker-compose.prod.yml, which publishes no other ports).
+    #
+    # Locally (no Cloudflare in front), the header is simply absent and
+    # this falls back to the direct TCP peer.
+    cf_connecting_ip = request.headers.get("cf-connecting-ip")
+    if cf_connecting_ip:
+        return cf_connecting_ip
+    return request.client.host if request.client else "unknown"
+
+
 async def _enforce(request: Request, redis_client: redis.Redis, scope: str, limit: tuple[int, int]) -> None:
     max_requests, window_seconds = limit
 
-    # request.client.host is the direct TCP peer. Behind an ALB/API Gateway
-    # in the real deployment that'll be the load balancer's IP, not the
-    # caller's - at that point this needs to read X-Forwarded-For instead
-    # (and only trust it because API Gateway/ALB sets it, not the client).
-    # Flagging now so it isn't forgotten when this moves off localhost.
-    ip = request.client.host if request.client else "unknown"
-    key = f"ratelimit:{scope}:{ip}"
+    key = f"ratelimit:{scope}:{_client_ip(request)}"
 
-    # Fixed-window counter: INCR the key, set its TTL only on the first hit
-    # in the window. This is a few bytes in Redis and one round trip per
-    name = "current"
+    # Fixed-window counter: INCR the key, set its TTL only on the first
+    # hit in the window. A few bytes in Redis and one round trip per
+    # request.
     current = await redis_client.incr(key)
     if current == 1:
         await redis_client.expire(key, window_seconds)
