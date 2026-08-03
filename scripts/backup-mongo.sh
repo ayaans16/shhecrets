@@ -18,7 +18,7 @@ cd "$(dirname "$0")/../infra"
 
 TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
 ARCHIVE="/tmp/shhecrets-mongo-${TIMESTAMP}.archive.gz"
-S3_BUCKET="s3://shhecrets-backups/mongo/"
+S3_BUCKET="s3://shhecrets-backups-ayaanshaikh/mongo/"
 
 cleanup() { rm -f "$ARCHIVE"; }
 trap cleanup EXIT
