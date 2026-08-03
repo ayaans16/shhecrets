@@ -119,6 +119,110 @@ That's it - the next push to `main` that passes CI will SSH in, `git
 pull`, rebuild, and curl the public health endpoint to confirm it came
 up. Watch it under the repo's Actions tab.
 
+## 7. Backups (Mongo -> Cloudflare R2)
+
+Redis isn't backed up - see `scripts/backup-mongo.sh` for why.
+
+**Install rclone:**
+```bash
+curl https://rclone.org/install.sh | sudo bash
+```
+
+**Create an R2 bucket** (Cloudflare dashboard -> R2 -> Create bucket),
+e.g. `shhecrets-backups`.
+
+**Create a scoped R2 API token** (R2 -> Manage API tokens -> Create API
+token, Object Read & Write, scoped to that bucket only). Cloudflare
+shows an Access Key ID, Secret Access Key, and an endpoint URL
+(`https://<account_id>.r2.cloudflarestorage.com`) - keep this tab open
+for the next step.
+
+**Configure the rclone remote directly on the VPS** (interactive - paste
+the credentials from the previous step when prompted, not here):
+```bash
+rclone config
+# n) New remote
+# name: r2
+# Storage: s3
+# provider: Cloudflare
+# access_key_id / secret_access_key: from the R2 token above
+# endpoint: https://<account_id>.r2.cloudflarestorage.com
+```
+
+**Set a lifecycle rule for retention** (R2 bucket -> Settings -> Object
+lifecycle rules -> add rule -> expire objects after e.g. 30 days) -
+this is what handles cleanup, not the script.
+
+**Test it once manually**, then check the bucket:
+```bash
+cd ~/shhecrets
+ALERT_EMAIL=you@example.com ./scripts/backup-mongo.sh
+rclone ls r2:shhecrets-backups/mongo/
+```
+
+**Add the cron job** (`crontab -e`):
+```
+0 3 * * * ALERT_EMAIL=you@example.com /home/ubuntu/shhecrets/scripts/backup-mongo.sh >> /home/ubuntu/shhecrets-backup.log 2>&1
+```
+
+## 8. Monitoring
+
+Two layers - they catch different failure modes.
+
+**A. External uptime check** (catches "the VPS itself is unreachable" -
+something monitoring *from* the VPS can't detect about itself):
+
+Sign up free at [UptimeRobot](https://uptimerobot.com) (or similar) and
+add two HTTPS monitors, 5-minute interval:
+- `https://shhecrets.ca`
+- `https://api.shhecrets.ca/health`
+
+Set an email alert contact so you're notified the moment either stops
+responding.
+
+**B. Local health + disk check** (catches "site's reachable but a
+container's crash-looping, or disk is filling up" - things an external
+ping alone won't see):
+
+Install msmtp:
+```bash
+sudo apt-get install -y msmtp msmtp-mta
+```
+
+Generate a Gmail **App Password** (Google Account -> Security -> 2-Step
+Verification -> App passwords) - not your real account password, Gmail
+won't accept that for SMTP auth. Create `~/.msmtprc`:
+```
+defaults
+auth           on
+tls            on
+tls_trust_file /etc/ssl/certs/ca-certificates.crt
+
+account        default
+host           smtp.gmail.com
+port           587
+user           your-address@gmail.com
+password       your-16-char-app-password
+from           your-address@gmail.com
+```
+```bash
+chmod 600 ~/.msmtprc
+```
+
+Test it once:
+```bash
+cd ~/shhecrets
+ALERT_EMAIL=you@example.com ./scripts/healthcheck.sh; echo "exit: $?"
+```
+Exit `0` with no output means healthy. To confirm the email path itself
+works, temporarily lower `DISK_THRESHOLD_PERCENT` in the script to
+something you're already above, rerun, then put it back.
+
+**Add the cron job:**
+```
+*/15 * * * * ALERT_EMAIL=you@example.com /home/ubuntu/shhecrets/scripts/healthcheck.sh >> /home/ubuntu/shhecrets-healthcheck.log 2>&1
+```
+
 ## Day-to-day operations
 
 ```bash
