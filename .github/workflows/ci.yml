@@ -18,7 +18,11 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - run: pytest -q
+      # `python -m pytest`, not bare `pytest` - the `-m` form adds the
+      # current directory to sys.path, which is what makes `from app...`
+      # importable without an editable install. Bare `pytest` doesn't do
+      # this and fails with ModuleNotFoundError: No module named 'app'.
+      - run: python -m pytest -q
 
   frontend:
     runs-on: ubuntu-latest
