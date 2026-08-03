@@ -206,6 +206,13 @@ input[type="text"]:focus {
   font-size: 13px;
 }
 
+.link-box button {
+  padding: 4px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .muted {
   color: var(--fg-muted);
   font-size: 13px;
@@ -233,6 +240,23 @@ input[type="text"]:focus {
 .badge-success {
   color: var(--success);
   border-color: var(--success);
+}
+
+/* Block-level, for longer status/error text that needs its own line -
+   .badge is inline-block and meant for short pills like "expires in ~10
+   min", which don't force a line break before whatever follows them. */
+.status {
+  display: block;
+  font-size: 14px;
+  margin: 0;
+}
+
+.status-danger {
+  color: var(--danger);
+}
+
+.status-success {
+  color: var(--success);
 }
 
 .secret-reveal {

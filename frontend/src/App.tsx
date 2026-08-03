@@ -1,4 +1,5 @@
 import { useTheme } from "./hooks/useTheme";
+import CreateSecret from "./pages/CreateSecret";
 
 // Two routes total ("/" and "/s/:sessionId"), and the app is a plain
 // client-rendered SPA with no SSR/data-router needs - not enough surface
@@ -34,7 +35,7 @@ export default function App() {
         {sessionId ? (
           <p className="muted">view page lands in the next PR (session: {sessionId})</p>
         ) : (
-          <p className="muted">create page lands in the next PR</p>
+          <CreateSecret />
         )}
       </main>
     </div>
