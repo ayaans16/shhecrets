@@ -40,6 +40,14 @@ jobs:
       - run: npx tsc -b
       - run: npx vitest run
 
+  lint-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # shellcheck ships preinstalled on GitHub's ubuntu-latest runners -
+      # no separate setup step needed.
+      - run: shellcheck scripts/*.sh
+
   deploy:
     needs: [backend, frontend]
     # Only after a real merge to main, never on a PR - a PR from a fork
