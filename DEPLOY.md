@@ -119,45 +119,78 @@ That's it - the next push to `main` that passes CI will SSH in, `git
 pull`, rebuild, and curl the public health endpoint to confirm it came
 up. Watch it under the repo's Actions tab.
 
-## 7. Backups (Mongo -> Cloudflare R2)
+## 7. Backups (Mongo -> AWS S3)
 
 Redis isn't backed up - see `scripts/backup-mongo.sh` for why.
 
-**Install rclone:**
-```bash
-curl https://rclone.org/install.sh | sudo bash
-```
+**Set a budget alert first, before creating anything else.** AWS
+Billing -> Budgets -> Create budget -> fixed amount, e.g. $1 -> alert
+via email at 100% of actual spend. This is the real safety net - it's
+what actually catches "something's gone wrong" before it becomes a
+real bill, not the free-tier math below.
 
-**Create an R2 bucket** (Cloudflare dashboard -> R2 -> Create bucket),
-e.g. `shhecrets-backups`.
+**Create the bucket** (S3 console -> Create bucket -> name
+`shhecrets-backups`, or a suffixed variant if that's taken since bucket
+names are globally unique -> keep "Block all public access" on, the
+default).
 
-**Create a scoped R2 API token** (R2 -> Manage API tokens -> Create API
-token, Object Read & Write, scoped to that bucket only). Cloudflare
-shows an Access Key ID, Secret Access Key, and an endpoint URL
-(`https://<account_id>.r2.cloudflarestorage.com`) - keep this tab open
-for the next step.
-
-**Configure the rclone remote directly on the VPS** (interactive - paste
-the credentials from the previous step when prompted, not here):
-```bash
-rclone config
-# n) New remote
-# name: r2
-# Storage: s3
-# provider: Cloudflare
-# access_key_id / secret_access_key: from the R2 token above
-# endpoint: https://<account_id>.r2.cloudflarestorage.com
-```
-
-**Set a lifecycle rule for retention** (R2 bucket -> Settings -> Object
-lifecycle rules -> add rule -> expire objects after e.g. 30 days) -
+**Set a lifecycle rule for retention** (bucket -> Management ->
+Lifecycle rules -> add rule -> expire objects after e.g. 30 days) -
 this is what handles cleanup, not the script.
+
+**Create a dedicated IAM user** (IAM -> Users -> Create user, no
+console access needed) - don't use root account credentials for this,
+or for anything else. Attach this inline policy, scoped to only this
+one bucket:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ListBucketOnly",
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::shhecrets-backups"
+    },
+    {
+      "Sid": "ReadWriteObjectsOnly",
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:GetObject"],
+      "Resource": "arn:aws:s3:::shhecrets-backups/*"
+    }
+  ]
+}
+```
+
+Not the AWS-managed `AmazonS3FullAccess` policy - that would grant
+access to every bucket in the account, not just this one. Then
+generate an access key for this user (Security credentials -> Create
+access key -> "Command Line Interface (CLI)" use case).
+
+**Install the AWS CLI on the VPS:**
+```bash
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o awscliv2.zip
+sudo apt-get install -y unzip
+unzip awscliv2.zip
+sudo ./aws/install
+```
+
+**Configure credentials directly on the VPS** (paste the Access Key
+ID/Secret Access Key when prompted - never here):
+```bash
+aws configure
+# AWS Access Key ID: <paste>
+# AWS Secret Access Key: <paste>
+# Default region: <your bucket's region, e.g. us-east-1>
+# Default output format: json
+```
 
 **Test it once manually**, then check the bucket:
 ```bash
 cd ~/shhecrets
 ALERT_EMAIL=you@example.com ./scripts/backup-mongo.sh
-rclone ls r2:shhecrets-backups/mongo/
+aws s3 ls s3://shhecrets-backups/mongo/
 ```
 
 **Add the cron job** (`crontab -e`):
