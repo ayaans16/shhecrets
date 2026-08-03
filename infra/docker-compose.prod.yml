@@ -1,0 +1,60 @@
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # No published ports - only reachable from other containers on this
+    # compose network, never from the host or the internet. No volume
+    # either: everything stored here has a TTL by design, so losing it
+    # on a restart is expected, not a data-loss bug.
+
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    # No published ports - same reasoning as redis. Unlike redis this
+    # does get a volume: session metadata (audit trail) should survive
+    # a container restart even though the secrets themselves don't.
+
+  backend:
+    build:
+      context: ../backend
+    restart: unless-stopped
+    env_file:
+      - ../backend/.env.production
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      MONGO_URL: mongodb://mongo:27017
+    depends_on:
+      - redis
+      - mongo
+    # No published ports - the only thing that talks to this is the
+    # proxy service below, over the compose network. Nothing on this
+    # box is reachable from the internet except the proxy.
+
+  frontend:
+    build:
+      context: ../frontend
+      args:
+        VITE_API_BASE_URL: https://api.shhecrets.ca
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/certs:ro
+      - caddy_data:/data
+    depends_on:
+      - frontend
+      - backend
+
+volumes:
+  mongo_data:
+  caddy_data:
