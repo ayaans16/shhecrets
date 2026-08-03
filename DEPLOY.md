@@ -151,13 +151,13 @@ one bucket:
       "Sid": "ListBucketOnly",
       "Effect": "Allow",
       "Action": "s3:ListBucket",
-      "Resource": "arn:aws:s3:::shhecrets-backups"
+      "Resource": "arn:aws:s3:::shhecrets-backups-ayaanshaikh"
     },
     {
       "Sid": "ReadWriteObjectsOnly",
       "Effect": "Allow",
       "Action": ["s3:PutObject", "s3:GetObject"],
-      "Resource": "arn:aws:s3:::shhecrets-backups/*"
+      "Resource": "arn:aws:s3:::shhecrets-backups-ayaanshaikh/*"
     }
   ]
 }
@@ -190,7 +190,7 @@ aws configure
 ```bash
 cd ~/shhecrets
 ALERT_EMAIL=you@example.com ./scripts/backup-mongo.sh
-aws s3 ls s3://shhecrets-backups/mongo/
+aws s3 ls s3://shhecrets-backups-ayaanshaikh/mongo/
 ```
 
 **Add the cron job** (`crontab -e`):
