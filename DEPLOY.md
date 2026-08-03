@@ -89,6 +89,36 @@ docker compose -f docker-compose.prod.yml ps
 # only `proxy` should show published ports (80, 443)
 ```
 
+## 6. Automated deploys (GitHub Actions, one-time setup)
+
+After this, every merge to `main` that passes CI automatically redeploys
+the VPS.
+
+**Generate a dedicated deploy key directly on the VPS** - don't reuse
+your personal SSH key, and don't generate it anywhere the private key
+would need to travel between machines:
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/gh_actions_deploy -N ""
+cat ~/.ssh/gh_actions_deploy.pub >> ~/.ssh/authorized_keys
+cat ~/.ssh/gh_actions_deploy   # copy this - the private key
+```
+
+**Add three repository secrets** (GitHub repo -> Settings -> Secrets and
+variables -> Actions -> New repository secret). Paste values directly
+into GitHub's secret UI - never into chat, a commit, or a file in the
+repo:
+
+| Secret | Value |
+|---|---|
+| `VPS_HOST` | the VPS's public IP |
+| `VPS_USER` | `ubuntu` (or whatever user you SSH in as) |
+| `VPS_SSH_KEY` | the private key from `cat ~/.ssh/gh_actions_deploy` above |
+
+That's it - the next push to `main` that passes CI will SSH in, `git
+pull`, rebuild, and curl the public health endpoint to confirm it came
+up. Watch it under the repo's Actions tab.
+
 ## Day-to-day operations
 
 ```bash
