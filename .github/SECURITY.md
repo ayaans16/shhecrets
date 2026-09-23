@@ -8,7 +8,7 @@ shhecrets is a single, continuously-deployed application, not a versioned librar
 
 Please **do not** open a public GitHub issue for security vulnerabilities.
 
-Instead, email **ayaannshaikhh8@gmail.com** with:
+Instead, email **contact@ayaanshaikh.ca** with:
 - A description of the issue and its potential impact
 - Steps to reproduce, if possible
 - Any relevant logs, payloads, or screenshots
